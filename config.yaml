@@ -1,0 +1,39 @@
+# Customer Language Mining System Configuration
+
+scraping:
+  # Maximum number of items to scrape per source
+  max_items_per_source: 100
+
+  # Timeout for web requests (seconds)
+  request_timeout: 30
+
+  # Rate limiting between requests (seconds)
+  rate_limit_delay: 2
+
+analysis:
+  # Claude model to use for analysis
+  model: claude-sonnet-4-5-20250929
+
+  # Maximum tokens for analysis
+  max_tokens: 4000
+
+  # Temperature for analysis (0.0 - 1.0)
+  temperature: 0.3
+
+output:
+  # Output format: json, markdown, html
+  format: markdown
+
+  # Output directory
+  directory: ./output
+
+  # Include raw data in output
+  include_raw_data: true
+
+# Stage of awareness categories
+awareness_stages:
+  - unaware
+  - problem_aware
+  - solution_aware
+  - product_aware
+  - most_aware
