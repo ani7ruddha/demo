@@ -1,374 +1,234 @@
-# Customer Language Mining System
+# Creative Intelligence Dashboard
 
-Automated scraper and analyzer for customer language from Reddit, Amazon, YouTube, and other sources. Uses Claude AI to identify emotional patterns, pain points, and desire triggers, outputting a comprehensive "message map" with ad-ready hooks and body copy frameworks.
+Automated Meta Ads Library analyser that scrapes public ad creatives via Playwright browser automation, clusters them by creative similarity, scores them by impression signal, and surfaces winning angles in a Streamlit dashboard.
 
-## The Problem
+**No API keys required.** Public ad data only.
 
-Creative strategists spend 90% of their time making ads and only 10% researching. It should be the opposite. They need the exact phrases customers use when describing problems, desires, and outcomes.
+---
 
-## The Solution
+## Architecture
 
-This system automatically:
-- Scrapes customer language from Reddit threads, Amazon reviews, YouTube comments
-- Uses Claude AI to analyze emotional language patterns, pain points, and desire triggers
-- Organizes insights by stage of awareness (Eugene Schwartz framework)
-- Outputs ad-ready hooks and body copy frameworks using actual customer quotes
-
-## Features
-
-- **Multi-Source Scraping**: Reddit, Amazon, YouTube (extensible to other sources)
-- **Claude AI Analysis**: Deep analysis of emotional patterns and customer psychology
-- **Stage of Awareness Categorization**: Organizes insights by customer awareness level
-- **Ad-Ready Output**: Generates hooks, frameworks, and copy templates
-- **Multiple Output Formats**: JSON, Markdown, HTML
-- **Configurable**: Easy-to-customize settings for your use case
-
-## Installation
-
-### Prerequisites
-
-- Python 3.8 or higher
-- API keys for the services you want to use
-
-### Setup
-
-1. Clone this repository:
-```bash
-git clone <repository-url>
-cd demo
+```
+┌─────────────────────────────────────────────────────────┐
+│  Meta Ads Library (browser)                             │
+│           │  Playwright                                 │
+│           ▼                                             │
+│   ci/ingest_playwright.py  →  data/ads_raw.jsonl        │
+│           │                                             │
+│   ci/extract.py            →  data/ads_extracted.jsonl  │
+│           │                                             │
+│   ci/clean.py              →  data/ads_clean.jsonl      │
+│           │                                             │
+│   ci/embed.py              →  data/embeddings.npy       │
+│           │                   data/umap_2d.npy          │
+│           │                                             │
+│   ci/cluster.py            →  data/clusters.json        │
+│           │                   data/ads_clustered.jsonl  │
+│           │                                             │
+│   ci/score.py              →  data/ads_scored.jsonl     │
+│           │                   data/clusters_scored.json │
+│           │                                             │
+│   ci/insights.py           →  data/insights.json        │
+│                                data/insights.md         │
+│                                                         │
+│   app/dashboard.py  ←── Streamlit UI                    │
+└─────────────────────────────────────────────────────────┘
 ```
 
-2. Install dependencies:
+### Stack
+
+| Layer | Library |
+|---|---|
+| Browser automation | Playwright (Chromium) |
+| HTML parsing | BeautifulSoup 4 |
+| Embeddings | sentence-transformers/all-MiniLM-L6-v2 |
+| Dimensionality reduction | UMAP (fallback: PCA) |
+| Clustering | HDBSCAN (fallback: KMeans) |
+| Keyword extraction | scikit-learn TF-IDF |
+| Dashboard | Streamlit |
+
+---
+
+## Quick Start
+
+### 1. Install Python dependencies
+
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Create a `.env` file from the example:
+### 2. Install Playwright browsers
+
+```bash
+playwright install chromium
+```
+
+### 3. (Optional) Copy environment config
+
 ```bash
 cp .env.example .env
 ```
 
-4. Add your API keys to `.env`:
-```env
-ANTHROPIC_API_KEY=your_anthropic_api_key_here
-REDDIT_CLIENT_ID=your_reddit_client_id
-REDDIT_CLIENT_SECRET=your_reddit_client_secret
-REDDIT_USER_AGENT=CustomerLanguageMiner/1.0
-YOUTUBE_API_KEY=your_youtube_api_key_here
-```
-
-### Getting API Keys
-
-#### Anthropic (Claude) API Key (Required)
-1. Sign up at https://console.anthropic.com
-2. Navigate to API Keys section
-3. Create a new API key
-4. Add credits to your account
-
-#### Reddit API (Optional)
-1. Go to https://www.reddit.com/prefs/apps
-2. Click "Create App" or "Create Another App"
-3. Select "script" as the app type
-4. Note your client ID and secret
-
-#### YouTube API (Optional)
-1. Go to https://console.cloud.google.com
-2. Create a new project
-3. Enable YouTube Data API v3
-4. Create credentials (API key)
-
-#### Amazon Scraping
-- No API key required
-- Uses web scraping (be mindful of rate limits)
-
-## Usage
-
-### Basic Usage
-
-Scrape and analyze customer language from Reddit:
+### 4. Run the pipeline (CLI)
 
 ```bash
-python main.py "weight loss" --reddit "loseit,fitness,keto"
+python -m ci.pipeline \
+  --url "https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=fitness&search_type=keyword_unordered" \
+  --max_ads 300 \
+  --headless false
 ```
 
-Scrape from Amazon reviews:
+### 5. Launch the dashboard
 
 ```bash
-python main.py "protein powder" --amazon
+streamlit run app/dashboard.py
 ```
 
-Scrape from YouTube comments:
+Then open `http://localhost:8501` in your browser.
 
-```bash
-python main.py "meditation app" --youtube
-```
+---
 
-Scrape from multiple sources:
-
-```bash
-python main.py "fitness tracker" --reddit "fitness,running" --amazon --youtube
-```
-
-### Advanced Usage
-
-Add context for better analysis:
-
-```bash
-python main.py "project management software" \
-  --reddit "projectmanagement,productivity" \
-  --context "B2B SaaS targeting small business owners"
-```
-
-Specify output format:
-
-```bash
-python main.py "meal planning" --reddit "mealprep" --format markdown
-python main.py "meal planning" --reddit "mealprep" --format html
-python main.py "meal planning" --reddit "mealprep" --format all
-```
-
-Use custom config file:
-
-```bash
-python main.py "sleep app" --reddit "sleep" --config custom_config.yaml
-```
-
-### Command-Line Options
+## CLI Reference
 
 ```
-positional arguments:
-  query                 Search query or product category to research
+python -m ci.pipeline [OPTIONS]
 
-options:
-  -h, --help            Show help message
-  --reddit SUBREDDITS   Comma-separated list of subreddit names
-  --amazon              Enable Amazon reviews scraping
-  --youtube             Enable YouTube comments scraping
-  --context TEXT        Additional context for better analysis
-  --format FORMAT       Output format: json, markdown, html, all
-  --config FILE         Path to config file (default: config.yaml)
+Options:
+  --url TEXT              Meta Ads Library URL to scrape  [required]
+  --max_ads INT           Maximum ads to collect (default: 300)
+  --headless BOOL         Run browser headless true/false (default: true)
+  --skip_ingest           Reuse existing ads_raw.jsonl (skip browser step)
+  --no_umap               Disable UMAP (use raw embeddings for clustering)
+  --min_cluster_size INT  Minimum HDBSCAN cluster size (default: 3)
 ```
 
-## Output
-
-The system generates a comprehensive "Message Map" containing:
-
-### 1. Executive Summary
-- Top pain point
-- Dominant emotion
-- Primary desire
-- Count of patterns identified
-
-### 2. Pain Points
-- Description of each pain point
-- Severity level (critical/major/minor)
-- Customer quotes demonstrating the pain
-- Before state and desired outcome
-
-### 3. Emotional Patterns
-- Identified emotions (frustration, hope, fear, desire, etc.)
-- Frequency of each emotion
-- Example quotes
-- Advertising angles
-
-### 4. Desire Triggers
-- What customers want to achieve
-- Intensity levels
-- Language patterns
-- Aspirational identity
-
-### 5. Awareness Stages
-Customer language organized by Eugene Schwartz's 5 stages:
-- **Unaware**: No awareness of problem
-- **Problem Aware**: Know the problem, not the solution
-- **Solution Aware**: Know solutions exist
-- **Product Aware**: Know specific products
-- **Most Aware**: Ready to buy
-
-### 6. Ad-Ready Hooks
-Pre-written hooks for each awareness stage using customer language
-
-### 7. Body Copy Frameworks
-- Problem-Agitate-Solution
-- Before-After-Bridge
-- And more, with examples using customer quotes
-
-### 8. Call-to-Actions
-Suggested CTAs based on customer desires and pain points
-
-### 9. Objection Handlers
-Common objections and how to address them
+---
 
 ## Project Structure
 
 ```
-customer_language_miner/
-├── scrapers/
-│   ├── reddit_scraper.py       # Reddit API integration
-│   ├── amazon_scraper.py       # Amazon reviews scraper
-│   └── youtube_scraper.py      # YouTube API integration
-├── analysis/
-│   └── claude_analyzer.py      # Claude AI analysis engine
-├── output_generator/
-│   └── message_map.py          # Message map generation
-└── utils/
-    └── config.py               # Configuration utilities
+/app
+  dashboard.py          Streamlit dashboard UI
 
-main.py                         # Main CLI interface
-config.yaml                     # Configuration file
-requirements.txt                # Python dependencies
-.env.example                    # Environment variables template
+/ci
+  __init__.py
+  ingest_playwright.py  Playwright browser scraper
+  extract.py            HTML → structured fields
+  clean.py              Normalization + impression parsing
+  embed.py              Sentence-transformer embeddings + UMAP
+  cluster.py            HDBSCAN / KMeans clustering
+  score.py              Winner score + saturation index
+  insights.py           Angle classification + report generation
+  pipeline.py           End-to-end orchestrator + CLI
+
+/data                   Generated data files (gitignored)
+  ads_raw.jsonl
+  ads_extracted.jsonl
+  ads_clean.jsonl
+  embeddings.npy
+  umap_2d.npy
+  ads_clustered.jsonl
+  clusters.json
+  ads_scored.jsonl
+  clusters_scored.json
+  insights.json
+  insights.md
+
+.env.example            Environment variable template
+requirements.txt        Python dependencies
 ```
 
-## Configuration
+---
 
-Edit `config.yaml` to customize:
+## How It Works
 
-- Scraping limits
-- Rate limiting
-- Claude model and parameters
-- Output preferences
-- Awareness stage definitions
+### Ingestion
+Playwright launches a Chromium browser, navigates to the Ads Library URL, and scrolls until `max_ads` ad cards are loaded (or 3 consecutive scroll attempts yield no new cards). It optionally attempts to sort by "Highest impressions" if the dropdown is available. Raw card HTML is saved to `data/ads_raw.jsonl`.
 
-Example:
+Scrolling uses a randomised 1.5–3 second delay to respect rate limits.
 
-```yaml
-scraping:
-  max_items_per_source: 100
-  request_timeout: 30
-  rate_limit_delay: 2
+### Extraction
+BeautifulSoup parses each card's HTML to pull: advertiser name, ad body, headline, CTA, impression range, start date, platform icons, and thumbnail URL.
 
-analysis:
-  model: claude-sonnet-4-5-20250929
-  max_tokens: 4000
-  temperature: 0.3
+The CSS selector map is configured in `ci/ingest_playwright.py → SELECTORS`. If Meta changes the DOM, update the selectors there.
 
-output:
-  format: markdown
-  directory: ./output
-  include_raw_data: true
+### Normalization
+Impression strings like "10K–50K impressions" are parsed into `impression_lower`, `impression_upper`, and `impression_mid`. Start dates are normalised to `YYYY-MM-DD`. Longevity (days running) is computed from today's date.
+
+### Winner Score
+```
+winner_score = log(impression_mid + 1)
+             + log(longevity_days + 1)
+             + cluster_density_weight
 ```
 
-## Examples
+`cluster_density_weight` = normalised log of the cluster's average impression mid, scaled 0–2.
 
-### Example 1: Fitness Product Research
+### Clustering
+Texts are embedded with `all-MiniLM-L6-v2`, optionally reduced with UMAP, then clustered with HDBSCAN. Noise points are assigned to their nearest real cluster. Each cluster gets TF-IDF keyword extraction and a medoid representative ad.
 
-```bash
-python main.py "home workout equipment" \
-  --reddit "homegym,bodyweightfitness,fitness" \
-  --amazon \
-  --context "Targeting busy professionals who want to workout at home"
-```
+### Angle Classification
+Clusters are classified into 9 creative angles (Authority, Fear, Aspiration, Savings, Convenience, Mechanism, Social Proof, Curiosity, Urgency) via keyword matching on the representative ad text.
 
-Output includes:
-- Pain points: "No time for gym", "Expensive memberships", "Intimidating gym environment"
-- Emotions: Frustration with lack of progress, hope for change
-- Ad hooks: "Tired of paying $100/month for a gym you never visit?"
+### Saturation Index
+The Herfindahl–Hirschman Index (HHI) measures market concentration across clusters:
+- `< 0.15` → fragmented, many opportunities
+- `0.15–0.35` → moderate concentration
+- `> 0.35` → high saturation, few angles dominate
 
-### Example 2: SaaS Product Research
+### Scalable Clusters (Bonus)
+Clusters where `avg_impression_mid > median` AND `avg_longevity_days > median` AND `size > 3` are flagged as "likely winning themes".
 
-```bash
-python main.py "team collaboration tools" \
-  --reddit "projectmanagement,smallbusiness" \
-  --youtube \
-  --context "B2B SaaS for remote teams"
-```
+---
 
-Output includes:
-- Pain points: "Communication breakdowns", "Lost messages", "Too many tools"
-- Desires: "Single source of truth", "Better team alignment"
-- Frameworks: Problem-Agitate-Solution using exact customer quotes
+## Dashboard Features
 
-## Best Practices
+| Section | Description |
+|---|---|
+| KPI Row | Total ads, clusters, saturation score, avg winner score |
+| Overview | Angle distribution bar chart, underserved opportunities, winning themes |
+| Cluster Table | All clusters ranked by winner score, styled with gold for scalable clusters |
+| Cluster Detail | Representative ad, top keywords, all ads in cluster |
+| Top Hooks | Top 20 opening phrases from highest-scoring ads |
+| Visualisations | Cluster sizes, impression distribution, winner score chart, UMAP 2D scatter |
 
-1. **Be Specific**: Use specific product categories rather than generic terms
-2. **Choose Relevant Sources**: Select subreddits/sources where your target audience hangs out
-3. **Add Context**: Provide business context for more relevant analysis
-4. **Review Raw Data**: Check the scraped data to ensure quality
-5. **Iterate**: Try different queries and sources to get comprehensive insights
-6. **Respect Rate Limits**: Don't scrape too aggressively to avoid being blocked
-
-## Limitations
-
-- **API Quotas**: Each API has rate limits and quotas
-- **Scraping Risks**: Web scraping can be blocked by anti-bot measures
-- **Data Quality**: Analysis quality depends on scraped data quality
-- **Cost**: Claude API usage incurs costs based on tokens processed
+---
 
 ## Troubleshooting
 
-### "No data was scraped"
-- Check your API keys in `.env`
-- Verify your query returns results on the platforms
-- Check rate limiting settings
+### No ads found after scraping
+- Try `--headless false` to see what the browser is loading
+- The Ads Library may require accepting cookies — run headful once to set state
+- Check `ci/ingest_playwright.py → SELECTORS["ad_card"]` against the live DOM
+- Print the first card HTML by temporarily adding `print(page.inner_html("body")[:3000])` in `ingest_playwright.py`
 
-### "Error during Claude analysis"
-- Verify your Anthropic API key
-- Check you have sufficient credits
-- Review the error message for details
+### HDBSCAN produces too many noise points
+- Lower `--min_cluster_size` to 2
+- Disable UMAP with `--no_umap` and cluster on raw embeddings
 
-### "Rate limited" or "403 Forbidden"
-- Reduce scraping frequency
-- Increase `rate_limit_delay` in config
-- Check if your IP is blocked
+### sentence-transformers not available
+- The system automatically falls back to TF-IDF + SVD embeddings
+- Install: `pip install sentence-transformers`
 
-## Extending the System
+### UMAP not available
+- The system automatically falls back to PCA
+- Install: `pip install umap-learn`
 
-### Adding New Data Sources
+---
 
-1. Create a new scraper in `customer_language_miner/scrapers/`
-2. Implement the scraper class with consistent output format
-3. Add it to `scrapers/__init__.py`
-4. Update `main.py` to integrate the new source
+## Limitations
 
-### Customizing Analysis
+- Only collects **publicly visible** ad data from the Meta Ads Library
+- Impression ranges are approximate buckets, not exact figures
+- Start dates are not always shown for all ads
+- Meta may update their DOM — selectors in `SELECTORS` dict may need updating
+- Browser fingerprinting may limit how many ads load per session
 
-Edit `customer_language_miner/analysis/claude_analyzer.py` to:
-- Modify analysis prompts
-- Add new analysis dimensions
-- Change output structure
+---
 
-### Custom Output Formats
+## Ethics & Legal
 
-Add new output methods in `customer_language_miner/output_generator/message_map.py`
-
-## Contributing
-
-Contributions are welcome! Please:
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
-
-## License
-
-See LICENSE file for details.
-
-## Support
-
-For issues and questions:
-- Create an issue in the GitHub repository
-- Check existing issues for solutions
-
-## Roadmap
-
-- [ ] Facebook Groups integration
-- [ ] Twitter/X scraping
-- [ ] Quora scraping
-- [ ] Automated sentiment analysis
-- [ ] Competitor analysis features
-- [ ] Export to popular ad platforms
-- [ ] Web UI dashboard
-- [ ] Scheduled automated research
-
-## Credits
-
-Built with:
-- [Anthropic Claude](https://www.anthropic.com) - AI analysis
-- [PRAW](https://praw.readthedocs.io/) - Reddit API
-- [Beautiful Soup](https://www.crummy.com/software/BeautifulSoup/) - Web scraping
-- [Google API Client](https://github.com/googleapis/google-api-python-client) - YouTube API
-
-## Disclaimer
-
-This tool is for research and educational purposes. Always respect platform terms of service and rate limits. Be mindful of privacy and data protection regulations when collecting and analyzing user-generated content.
+- Only scrapes publicly accessible data from `facebook.com/ads/library`
+- Does not bypass authentication, paywalls, or rate limits
+- Includes randomised delays to avoid overloading servers
+- Use responsibly and in compliance with Meta's Terms of Service

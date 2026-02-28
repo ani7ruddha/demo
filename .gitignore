@@ -56,3 +56,7 @@ htmlcov/
 *.tmp
 *.bak
 .cache/
+data/*.jsonl
+data/*.npy
+data/*.json
+data/insights.md
